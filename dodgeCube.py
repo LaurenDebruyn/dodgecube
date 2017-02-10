@@ -4,10 +4,13 @@ from math import sqrt, pow
 
 BLACK = 0, 0, 0
 WHITE = 255, 255, 255
+RED = 255, 0, 0
 SPEED = [0, 1]
 WIDTH = 750
 HEIGHT = 600
-PLAYERSPEED = 7
+PLAYERSPEED = 9
+PLAYERSIZE = 30
+BULLETSPEED = 2
 
 
 class Square:
@@ -15,6 +18,7 @@ class Square:
     def __init__(self, surface):
         self._height = 20.0
         self._width = 20.0
+        self._size = 20.0
         self.surface = surface
         self._speed = [0, 5]
         self._x_position = randrange(WIDTH - self._width)
@@ -24,10 +28,14 @@ class Square:
         self.center_x = self.square.centerx
         self.center_y = self.square.centery
         self.bottom = self.square.bottom
+        self.onscreen = True
+        self.collision = False
 
     def draw(self):
-        if self._y_position < HEIGHT:
-            pygame.draw.rect(self.surface, WHITE, self.square)
+        if self.center_y < HEIGHT + self._height:
+            pygame.draw.rect(self.surface, RED, self.square)
+        else:
+            self.onscreen = False
 
     def move(self):
         self.adjust_speed()
@@ -48,50 +56,82 @@ class Square:
         self._height *= 1.001
         self.square = self.square.inflate(self._width - 20, self._height - 20)
 
+    def check_collision(self, obj):
+        distance = sqrt(pow(self.center_x - obj.center_x, 2) + pow(self.center_y - obj.center_y, 2))
+        # if distance <= 45 and obj.bottom <= HEIGHT - 120:
+        if distance <= self._size/2 + obj.size/2 and obj.onscreen:
+            self.collision = True
+            obj.collision = True
+            print("collision")
+
 
 class Player:
 
     def __init__(self, surface):
-        self.surface = surface
         self.collision = False
+        self.surface = surface
+        self.onscreen = True
         self._color = WHITE
-        self._size = 30
-        self._center = WIDTH / 2
-        self._pointlist = [(self._center - self._size/2, HEIGHT - 120), (
-            self._center + self._size/2, HEIGHT - 120),
-            (self._center, HEIGHT - 120 - self._size)]
+        self.size = PLAYERSIZE
+        self.center_x = WIDTH / 2
+        self.center_y = HEIGHT - 120 - PLAYERSIZE/2
+        self._pointlist = [(self.center_x - self.size/2, HEIGHT - 120), (
+            self.center_x + self.size/2, HEIGHT - 120),
+            (self.center_x, HEIGHT - 120 - self.size)]
 
     def update_position(self):
-        self._pointlist = ((self._center - self._size / 2, HEIGHT - 120),
-                           (self._center + self._size / 2, HEIGHT - 120),
-                           (self._center, HEIGHT - 120 - self._size))
+        self._pointlist = ((self.center_x - self.size / 2, HEIGHT - 120),
+                           (self.center_x + self.size / 2, HEIGHT - 120),
+                           (self.center_x, HEIGHT - 120 - self.size))
 
     def draw(self):
         pygame.draw.polygon(self.surface, WHITE, self._pointlist)
 
     def move_left(self):
-        self._center -= PLAYERSPEED
+        self.center_x -= PLAYERSPEED
         self.update_position()
 
     def move_right(self):
-        self._center += PLAYERSPEED
+        self.center_x += PLAYERSPEED
         self.update_position()
 
-    def check_collision(self, obj):
-        distance = sqrt(pow(obj.center_x - self._center, 2) + pow(obj.center_y - (HEIGHT - 120), 2))
-        # print(distance)
-        if distance <= 45 and obj.bottom <= HEIGHT - 120:
-            self.collision = True
-            print("DEAD")
+
+class Bullet:
+    def __init__(self, surface, x_position):
+        self.surface = surface
+        self.onscreen = True
+        self.collision = False
+        self.speed = [0, -PLAYERSPEED]
+        self._radius = 5
+        self.size = 2 * self._radius
+        self.center_x = x_position
+        self.center_y = HEIGHT - 120 - self.size
+        self._rect = pygame.Rect(self.center_x, self.center_y, self._radius * 2, self._radius * 2)
+
+    def draw(self):
+        if self._rect.centery > 125 and not self.collision:
+            pygame.draw.ellipse(self.surface, RED, self._rect)
+        else:
+            self.onscreen = False
+
+    def fly(self):
+        self._rect = self._rect.move(self.speed)
+        self.center_x = self._rect.centerx
+        self.center_y = self._rect.centery
+        self.draw()
+
+    # def explode(self, ):
+    #   print("bullet explodes when hitting an obstacle")
 
 
 pygame.init()
 
-size = 750, 600
+size = WIDTH, HEIGHT
 
 screen = pygame.display.set_mode(size)
 squares = list()
 squares.append(Square(screen))
+bullets = list()
 player = Player(screen)
 counter = 0
 score = 0
@@ -102,14 +142,19 @@ text_score = myfont.render(str(score), 5, (255, 25, 0))
 screen.blit(text_score, (375, 50))
 
 
-while not player.collision:
+while 1:
     counter += 1
     score += 1
     pygame.time.delay(40)
 
+    screen.fill(BLACK)
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             sys.exit()
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                bullets.append(Bullet(screen, player.center_x))
 
     keys = pygame.key.get_pressed()
     if keys[pygame.K_LEFT]:
@@ -117,19 +162,35 @@ while not player.collision:
     if keys[pygame.K_RIGHT]:
         player.move_right()
 
+    for bullet in bullets:
+        if bullet.onscreen:
+            bullet.fly()
+
+    new_squares = list()
     for square in squares:
-        square.move()
-        player.check_collision(square)
+        for bullet in bullets:
+            square.check_collision(bullet)
+        if square.onscreen and not square.collision:
+            square.move()
+            square.check_collision(player)
+            new_squares.append(square)
+        if square.collision:
+            print("bang!!!")
+
+    squares = new_squares
+
     if counter >= 10:
         for i in range(randrange(10)):
             squares.append(Square(screen))
         counter = 0
-    screen.fill(BLACK)
+    # screen.fill(BLACK)
     pygame.draw.line(screen, WHITE, (0, 125), (1000, 125), 5)
 
     for square in squares:
         square.draw()
-
+    if player.collision:
+        score = 0
+        player.collision = False
     text_score = myfont.render(str(score), 5, (255, 25, 0))
     screen.blit(text_score, (375, 50))
 
