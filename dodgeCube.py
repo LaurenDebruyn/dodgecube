@@ -143,6 +143,7 @@ screen.blit(text_score, (375, 50))
 
 
 while 1:
+    print(len(squares))
     counter += 1
     score += 1
     pygame.time.delay(40)
@@ -168,14 +169,17 @@ while 1:
 
     new_squares = list()
     for square in squares:
-        for bullet in bullets:
-            square.check_collision(bullet)
-        if square.onscreen and not square.collision:
-            square.move()
-            square.check_collision(player)
-            new_squares.append(square)
-        if square.collision:
-            print("bang!!!")
+        if not square.onscreen:
+            squares.remove(square)
+        else:
+            for bullet in bullets:
+                square.check_collision(bullet)
+            if not square.collision:
+                square.move()
+                square.check_collision(player)
+                new_squares.append(square)
+            if square.collision:
+                print("bang!!!")
 
     squares = new_squares
 
