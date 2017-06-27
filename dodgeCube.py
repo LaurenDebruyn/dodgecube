@@ -11,6 +11,8 @@ HEIGHT = 600
 PLAYERSPEED = 9
 PLAYERSIZE = 30
 BULLETSPEED = 2
+BULLETRADIUS = 5
+HIGHSCORE = 0
 
 
 class Square:
@@ -23,8 +25,7 @@ class Square:
         self._speed = [0, 5]
         self._x_position = randrange(WIDTH - self._width)
         self._y_position = 125 - self._height - randrange(15)
-        self.square = pygame.Rect(self._x_position, self._y_position, self._width,
-                                  self._height)
+        self.square = pygame.Rect(self._x_position, self._y_position, self._width, self._height)
         self.center_x = self.square.centerx
         self.center_y = self.square.centery
         self.bottom = self.square.bottom
@@ -75,17 +76,18 @@ class Player:
         self.size = PLAYERSIZE
         self.center_x = WIDTH / 2
         self.center_y = HEIGHT - 120 - PLAYERSIZE/2
-        self._pointlist = [(self.center_x - self.size/2, HEIGHT - 120), (
+        self.vertices = [(self.center_x - self.size/2, HEIGHT - 120), (
             self.center_x + self.size/2, HEIGHT - 120),
             (self.center_x, HEIGHT - 120 - self.size)]
 
     def update_position(self):
-        self._pointlist = ((self.center_x - self.size / 2, HEIGHT - 120),
+        self.vertices = ((self.center_x - self.size / 2, HEIGHT - 120),
                            (self.center_x + self.size / 2, HEIGHT - 120),
                            (self.center_x, HEIGHT - 120 - self.size))
 
     def draw(self):
-        pygame.draw.polygon(self.surface, WHITE, self._pointlist)
+        # pygame.draw.circle(self.surface, WHITE, (int(self.center_x), int(self.center_y)), 5)
+        pygame.draw.polygon(self.surface, WHITE, self.vertices)
 
     def move_left(self):
         self.center_x -= PLAYERSPEED
@@ -102,11 +104,11 @@ class Bullet:
         self.onscreen = True
         self.collision = False
         self.speed = [0, -PLAYERSPEED]
-        self._radius = 5
+        self._radius = BULLETRADIUS
         self.size = 2 * self._radius
         self.center_x = x_position
         self.center_y = HEIGHT - 120 - self.size
-        self._rect = pygame.Rect(self.center_x, self.center_y, self._radius * 2, self._radius * 2)
+        self._rect = pygame.Rect(self.center_x, self.center_y - PLAYERSIZE / 2 - self._radius*2, self._radius * 2, self._radius * 2)
 
     def draw(self):
         if self._rect.centery > 125 and not self.collision:
@@ -143,7 +145,6 @@ screen.blit(text_score, (375, 50))
 
 
 while 1:
-    print(len(squares))
     counter += 1
     score += 1
     pygame.time.delay(40)
@@ -155,7 +156,7 @@ while 1:
             sys.exit()
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
-                bullets.append(Bullet(screen, player.center_x))
+                bullets.append(Bullet(screen, player.center_x - BULLETRADIUS))
 
     keys = pygame.key.get_pressed()
     if keys[pygame.K_LEFT]:
@@ -193,12 +194,14 @@ while 1:
     for square in squares:
         square.draw()
     if player.collision:
+        if score > HIGHSCORE:
+            HIGHSCORE = score
         score = 0
         player.collision = False
     text_score = myfont.render(str(score), 5, (255, 25, 0))
+    text_highscore = myfont.render(str(HIGHSCORE), 5, (255, 25, 0))
     screen.blit(text_score, (375, 50))
+    screen.blit(text_highscore, (450, 50))
 
     player.draw()
     pygame.display.flip()
-
-
